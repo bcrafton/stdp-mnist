@@ -342,7 +342,7 @@ j = 0
 while j < (int(num_examples)):
     normalize_weights()
 
-    rates = training['x'][j%60000,:,:].reshape((n_input)) / 8. *  input_intensity
+    rates = training['x'][j % 60000, :, :].reshape(n_input) / 8. *  input_intensity
     input_groups['Xe'].rate = rates
 
     b.run(single_example_time, report='text')
@@ -362,12 +362,10 @@ while j < (int(num_examples)):
     if np.sum(current_spike_count) < 5:
         input_intensity += 1
 
-        for i,name in enumerate(input_population_names):
-            input_groups[name+'e'].rate = 0
-
     else:
-        result_monitor[j%update_interval,:] = current_spike_count
-        input_numbers[j] = training['y'][j%60000][0]
+        result_monitor[j % update_interval, :] = current_spike_count
+        input_numbers[j] = training['y'][j % 60000][0]
+
         '''
         outputNumbers[j,:] = get_recognized_number_ranking(assignments, result_monitor[j % update_interval, :])
         '''
@@ -375,12 +373,10 @@ while j < (int(num_examples)):
         if j % 100 == 0 and j > 0:
             print 'runs done:', j, 'of', int(num_examples)
 
-        for i,name in enumerate(input_population_names):
-            input_groups[name+'e'].rate = 0
-
         input_intensity = start_input_intensity
         j += 1
 
+    input_groups['Xe'].rate = 0
     b.run(resting_time)
 
 #------------------------------------------------------------------------------ 
