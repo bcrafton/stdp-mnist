@@ -306,26 +306,23 @@ for name in population_names:
     print 'create monitors for', name
     rate_monitors[name+'e'] = b.PopulationRateMonitor(neuron_groups[name+'e'], bin = (single_example_time+resting_time)/b.second)
     rate_monitors[name+'i'] = b.PopulationRateMonitor(neuron_groups[name+'i'], bin = (single_example_time+resting_time)/b.second)
+
     spike_counters[name+'e'] = b.SpikeCounter(neuron_groups[name+'e'])
 
 #------------------------------------------------------------------------------ 
 # create input population and connections from input populations 
 #------------------------------------------------------------------------------ 
-for i,name in enumerate(input_population_names):
-    input_groups[name+'e'] = b.PoissonGroup(n_input, 0)
-    rate_monitors[name+'e'] = b.PopulationRateMonitor(input_groups[name+'e'], bin = (single_example_time+resting_time)/b.second)
+input_groups['Xe'] = b.PoissonGroup(n_input, 0)
+rate_monitors['Xe'] = b.PopulationRateMonitor(input_groups['Xe'], bin = (single_example_time + resting_time) / b.second)
 
-for name in input_connection_names:
-    print 'create connections between', name[0], 'and', name[1]
-    for connType in input_conn_names:
-        connName = name[0] + connType[0] + name[1] + connType[1]
-        weightMatrix = get_matrix_from_file(weight_path + connName + ending + '.npy')
-        connections[connName] = b.Connection(input_groups[connName[0:2]], neuron_groups[connName[2:4]], structure= conn_structure, state = 'g'+connType[0], delay=True, max_delay=delay[connType][1])
-        connections[connName].connect(input_groups[connName[0:2]], neuron_groups[connName[2:4]], weightMatrix, delay=delay[connType])
+connName = 'XeAe'
+weightMatrix = get_matrix_from_file(weight_path + connName + ending + '.npy')
+connections[connName] = b.Connection(input_groups['Xe'], neuron_groups['Ae'], structure=conn_structure, state = 'g' + 'e', delay=True, max_delay=delay['ee_input'][1])
+connections[connName].connect(input_groups['Xe'], neuron_groups['Ae'], weightMatrix, delay=delay['ee_input'])
      
-    if ee_STDP_on:
-        print 'create STDP for connection', name[0]+'e'+name[1]+'e'
-        stdp_methods[name[0]+'e'+name[1]+'e'] = b.STDP(connections[name[0]+'e'+name[1]+'e'], eqs=eqs_stdp_ee, pre = eqs_stdp_pre_ee, post = eqs_stdp_post_ee, wmin=0., wmax= wmax_ee)
+if ee_STDP_on:
+    print 'create STDP for connection', 'XeAe'
+    stdp_methods['XeAe'] = b.STDP(connections['XeAe'], eqs=eqs_stdp_ee, pre = eqs_stdp_pre_ee, post = eqs_stdp_post_ee, wmin=0., wmax= wmax_ee)
 
 
 #------------------------------------------------------------------------------ 
