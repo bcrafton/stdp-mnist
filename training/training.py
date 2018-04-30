@@ -60,39 +60,18 @@ def get_labeled_data(picklename, bTrain = True):
         pickle.dump(data, open("%s.pickle" % picklename, "wb"))
     return data
 
-def get_matrix_from_file(fileName):
-    offset = len(ending) + 4
-    if fileName[-4-offset] == 'X':
-        n_src = n_input                
-    else:
-        if fileName[-3-offset]=='e':
-            n_src = n_e
-        else:
-            n_src = n_i
-    if fileName[-1-offset]=='e':
-        n_tgt = n_e
-    else:
-        n_tgt = n_i
-    readout = np.load(fileName)
-    print readout.shape, fileName
-    value_arr = np.zeros((n_src, n_tgt))
-    if not readout.shape == (0,):
-        value_arr[np.int32(readout[:,0]), np.int32(readout[:,1])] = readout[:,2]
-    return value_arr
-
-
 def save_connections(ending = ''):
     print 'save connections'
     for connName in save_conns:
         connMatrix = connections[connName][:]
 #         connListSparse = ([(i,j[0],j[1]) for i in xrange(connMatrix.shape[0]) for j in zip(connMatrix.rowj[i],connMatrix.rowdata[i])])
         connListSparse = ([(i,j,connMatrix[i,j]) for i in xrange(connMatrix.shape[0]) for j in xrange(connMatrix.shape[1]) ])
-        np.save(data_path + '../weights/' + connName + ending, connListSparse)
+        np.save(data_path + '../saved_weights/' + connName + ending, connListSparse)
 
 def save_theta(ending = ''):
     print 'save theta'
     for pop_name in population_names:
-        np.save(data_path + '../weights/theta_' + pop_name + ending, neuron_groups[pop_name + 'e'].theta)
+        np.save(data_path + '../saved_weights/theta_' + pop_name + ending, neuron_groups[pop_name + 'e'].theta)
 
 def normalize_weights():
     for connName in connections:
@@ -126,6 +105,26 @@ def get_new_assignments(result_monitor, input_numbers):
                 maximum_rate[i] = rate[i]
                 assignments[i] = j
     return assignments
+
+def get_matrix_from_file(fileName):
+    offset = len(ending) + 4
+    if fileName[-4-offset] == 'X':
+        n_src = n_input                
+    else:
+        if fileName[-3-offset]=='e':
+            n_src = n_e
+        else:
+            n_src = n_i
+    if fileName[-1-offset]=='e':
+        n_tgt = n_e
+    else:
+        n_tgt = n_i
+
+    readout = np.load(fileName)
+    value_arr = np.zeros((n_src, n_tgt))
+    if not readout.shape == (0,):
+        value_arr[np.int32(readout[:,0]), np.int32(readout[:,1])] = readout[:,2]
+    return value_arr
     
     
 #------------------------------------------------------------------------------ 
@@ -162,7 +161,6 @@ b.set_global_preferences(
 np.random.seed(0)
 data_path = '../'
 
-weight_path = data_path + 'random/'  
 num_examples = 60000 * 3
 
 if num_examples <= 60000:    
@@ -282,24 +280,40 @@ neuron_groups['Ai'] = neuron_groups['i'].subgroup(n_i)
 
 neuron_groups['Ae'].v = v_rest_e - 40. * b.mV
 neuron_groups['Ai'].v = v_rest_i - 40. * b.mV
-
-if weight_path[-8:] == '../weights/':
-    neuron_groups['e'].theta = np.load(weight_path + 'theta_A' + ending + '.npy')
-else:
-    neuron_groups['e'].theta = np.ones((n_e)) * 20.0*b.mV
+neuron_groups['e'].theta = np.ones((n_e)) * 20.0*b.mV
 
 # recurrent connections
 
 connName = 'AeAi'
-weightMatrix = get_matrix_from_file(weight_path + '../random/' + connName + ending + '.npy')
+tmp = np.load('../random/AeAi.npy')
+avg = np.average(tmp)
+std = np.std(tmp)
+weightMatrix = np.random.normal(avg, std, size=(n_e, n_i))
 connections[connName] = b.Connection(neuron_groups['Ae'], neuron_groups['Ai'], structure= conn_structure, state = 'g'+'e')
 connections[connName].connect(neuron_groups['Ae'], neuron_groups['Ai'], weightMatrix)
 
+'''
+connName = 'AeAi'
+weightMatrix = get_matrix_from_file('../random/AeAi.npy')
+connections[connName] = b.Connection(neuron_groups['Ae'], neuron_groups['Ai'], structure= conn_structure, state = 'g'+'e')
+connections[connName].connect(neuron_groups['Ae'], neuron_groups['Ai'], weightMatrix)
+'''
+
 connName = 'AiAe'
-weightMatrix = get_matrix_from_file(weight_path + '../random/' + connName + ending + '.npy')
+tmp = np.load('../random/AiAe.npy')
+avg = np.average(tmp)
+std = np.std(tmp)
+weightMatrix = np.random.normal(avg, std, size=(n_i, n_e))
 connections[connName] = b.Connection(neuron_groups['Ai'], neuron_groups['Ae'], structure= conn_structure, state = 'g'+'i')
 connections[connName].connect(neuron_groups['Ai'], neuron_groups['Ae'], weightMatrix)
-            
+
+'''
+connName = 'AiAe'
+weightMatrix = get_matrix_from_file('../random/AiAe.npy')
+connections[connName] = b.Connection(neuron_groups['Ai'], neuron_groups['Ae'], structure= conn_structure, state = 'g'+'i')
+connections[connName].connect(neuron_groups['Ai'], neuron_groups['Ae'], weightMatrix)
+'''
+
 if ee_STDP_on:
     if 'ee' in recurrent_conn_names:
         stdp_methods['AeAe'] = b.STDP(connections['AeAe'], eqs=eqs_stdp_ee, pre = eqs_stdp_pre_ee, post = eqs_stdp_post_ee, wmin=0., wmax= wmax_ee)
@@ -311,22 +325,33 @@ spike_counters['Ae'] = b.SpikeCounter(neuron_groups['Ae'])
 #------------------------------------------------------------------------------ 
 # create input population and connections from input populations 
 #------------------------------------------------------------------------------ 
+
 input_groups['Xe'] = b.PoissonGroup(n_input, 0)
 rate_monitors['Xe'] = b.PopulationRateMonitor(input_groups['Xe'], bin = (single_example_time + resting_time) / b.second)
 
 connName = 'XeAe'
-weightMatrix = get_matrix_from_file(weight_path + connName + ending + '.npy')
+tmp = np.load('../random/XeAe.npy')
+avg = np.average(tmp)
+std = np.std(tmp)
+weightMatrix = np.random.normal(avg, std, size=(n_input, n_e))
 connections[connName] = b.Connection(input_groups['Xe'], neuron_groups['Ae'], structure=conn_structure, state = 'g' + 'e', delay=True, max_delay=delay['ee_input'][1])
 connections[connName].connect(input_groups['Xe'], neuron_groups['Ae'], weightMatrix, delay=delay['ee_input'])
-     
+
+'''
+connName = 'XeAe'
+weightMatrix = get_matrix_from_file('../random/XeAe.npy')
+connections[connName] = b.Connection(input_groups['Xe'], neuron_groups['Ae'], structure=conn_structure, state = 'g' + 'e', delay=True, max_delay=delay['ee_input'][1])
+connections[connName].connect(input_groups['Xe'], neuron_groups['Ae'], weightMatrix, delay=delay['ee_input'])
+'''
+
 if ee_STDP_on:
     print 'create STDP for connection', 'XeAe'
     stdp_methods['XeAe'] = b.STDP(connections['XeAe'], eqs=eqs_stdp_ee, pre = eqs_stdp_pre_ee, post = eqs_stdp_post_ee, wmin=0., wmax= wmax_ee)
 
-
 #------------------------------------------------------------------------------ 
 # run the simulation and set inputs
 #------------------------------------------------------------------------------ 
+
 previous_spike_count = np.zeros(n_e)
 assignments = np.zeros(n_e)
 
@@ -340,6 +365,8 @@ b.run(0)
 j = 0
 
 while j < (int(num_examples)):
+    print j
+
     normalize_weights()
 
     rates = training['x'][j % 60000, :, :].reshape(n_input) / 8. *  input_intensity
